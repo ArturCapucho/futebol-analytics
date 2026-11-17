@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: futebol-analytics
+data:
+  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/futebol
+  FUTEBOL_COLETA_FONTE: arquivo
+  # Com mais de uma réplica, coleta automática (na subida ou agendada) rodaria em
+  # todas ao mesmo tempo e disputaria as mesmas linhas. Por isso fica desligada:
+  # a coleta é disparada por POST .../coletas. Próximo passo: CronJob ou ShedLock.
+  FUTEBOL_COLETA_AO_INICIAR: "false"
+  FUTEBOL_COLETA_AGENDADA: "false"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: futebol-analytics
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: futebol-analytics
+  template:
+    metadata:
+      labels:
+        app: futebol-analytics
+    spec:
+      terminationGracePeriodSeconds: 40
+      containers:
+        - name: app
+          # Imagem local: `docker build -t futebol-analytics:0.0.1 .` e depois
+          # `minikube image load futebol-analytics:0.0.1` (ou `kind load docker-image ...`).
+          image: futebol-analytics:0.0.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: futebol-analytics
+          env:
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef: { name: postgres, key: POSTGRES_USER }
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: postgres, key: POSTGRES_PASSWORD }
+          startupProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: http }
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 200m, memory: 384Mi }
+            limits: { memory: 768Mi }
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: futebol-analytics
+spec:
+  selector:
+    app: futebol-analytics
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

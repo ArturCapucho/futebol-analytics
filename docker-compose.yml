@@ -1,0 +1,36 @@
+# Ambiente local completo: aplicação + PostgreSQL.
+#   docker compose up --build
+# Credenciais abaixo são só para desenvolvimento local.
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: futebol
+      POSTGRES_USER: futebol
+      POSTGRES_PASSWORD: futebol
+    ports:
+      - "5432:5432"
+    volumes:
+      - dados-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U futebol -d futebol"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/futebol
+      SPRING_DATASOURCE_USERNAME: futebol
+      SPRING_DATASOURCE_PASSWORD: futebol
+      # Para usar a API real: FUTEBOL_COLETA_FONTE=football-data e o token no ambiente.
+      FOOTBALL_DATA_TOKEN: ${FOOTBALL_DATA_TOKEN:-}
+    ports:
+      - "8080:8080"
+
+volumes:
+  dados-postgres:

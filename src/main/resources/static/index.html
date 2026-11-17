@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Futebol Analytics</title>
+<style>
+  :root { --fundo:#f4f5f7; --cartao:#fff; --texto:#1c2330; --suave:#667085; --borda:#e3e6eb; --destaque:#1f7a4d; }
+  @media (prefers-color-scheme: dark) {
+    :root { --fundo:#12161c; --cartao:#1b212b; --texto:#e8ebf0; --suave:#98a2b3; --borda:#2b3340; --destaque:#4cc38a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:24px 16px; background:var(--fundo); color:var(--texto); font:15px/1.45 system-ui, sans-serif; }
+  main { max-width:1040px; margin:0 auto; }
+  h1 { font-size:22px; margin:0 0 16px; }
+  h2 { font-size:15px; margin:0 0 12px; color:var(--suave); font-weight:600; }
+  form { display:flex; flex-wrap:wrap; gap:8px; align-items:end; margin-bottom:20px; }
+  label { display:grid; gap:4px; font-size:12px; color:var(--suave); }
+  input, button { font:inherit; padding:8px 10px; border-radius:8px; border:1px solid var(--borda); background:var(--cartao); color:var(--texto); }
+  input { width:120px; }
+  button { cursor:pointer; }
+  button.principal { background:var(--destaque); border-color:var(--destaque); color:#fff; }
+  .cartao { background:var(--cartao); border:1px solid var(--borda); border-radius:12px; padding:16px; }
+  .numeros { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; margin-bottom:12px; }
+  .numeros strong { display:block; font-size:26px; font-variant-numeric:tabular-nums; }
+  .numeros span { color:var(--suave); font-size:13px; }
+  .grade { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:12px; margin-bottom:12px; }
+  .rolagem { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+  th, td { padding:8px 10px; text-align:right; border-bottom:1px solid var(--borda); white-space:nowrap; }
+  th { font-size:12px; color:var(--suave); font-weight:600; }
+  th:nth-child(2), td:nth-child(2) { text-align:left; }
+  tr:last-child td { border-bottom:0; }
+  #aviso { color:var(--suave); min-height:1.4em; margin:0 0 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Futebol Analytics</h1>
+
+  <form id="filtro">
+    <label>Competição <input id="codigo" value="DEMO" required></label>
+    <label>Temporada <input id="temporada" type="number" value="2026" required></label>
+    <button class="principal" type="submit">Ver</button>
+    <button type="button" id="coletar">Coletar agora</button>
+  </form>
+  <p id="aviso" role="status"></p>
+
+  <section class="numeros">
+    <div class="cartao"><strong id="n-partidas">–</strong><span>partidas encerradas</span></div>
+    <div class="cartao"><strong id="n-gols">–</strong><span>gols</span></div>
+    <div class="cartao"><strong id="n-media">–</strong><span>gols por partida</span></div>
+  </section>
+
+  <section class="grade">
+    <div class="cartao"><h2>Pontos por time</h2><canvas id="grafico-pontos"></canvas></div>
+    <div class="cartao"><h2>Resultados</h2><canvas id="grafico-resultados"></canvas></div>
+  </section>
+
+  <section class="cartao">
+    <h2>Classificação</h2>
+    <div class="rolagem">
+      <table>
+        <thead><tr><th>#</th><th>Time</th><th>P</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>%</th></tr></thead>
+        <tbody id="tabela"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+  const el = id => document.getElementById(id);
+  const graficos = {};
+
+  const base = () =>
+    `/api/competicoes/${encodeURIComponent(el('codigo').value.trim())}/temporadas/${encodeURIComponent(el('temporada').value)}`;
+
+  async function chamar(caminho, opcoes) {
+    const resposta = await fetch(base() + caminho, opcoes);
+    const corpo = await resposta.json();
+    if (!resposta.ok) throw new Error(corpo.detail || `Erro ${resposta.status}`);
+    return corpo;
+  }
+
+  function desenhar(id, config) {
+    if (!window.Chart) return; // sem acesso à CDN: a página segue funcionando só com números e tabela
+    graficos[id]?.destroy();
+    graficos[id] = new Chart(el(id), config);
+  }
+
+  async function carregar() {
+    el('aviso').textContent = 'Carregando…';
+    try {
+      const [tabela, resumo] = await Promise.all([chamar('/classificacao'), chamar('/resumo')]);
+
+      el('n-partidas').textContent = resumo.partidasEncerradas;
+      el('n-gols').textContent = resumo.totalDeGols;
+      el('n-media').textContent = resumo.mediaDeGolsPorPartida.toFixed(2);
+
+      el('tabela').replaceChildren(...tabela.map(linha => {
+        const tr = document.createElement('tr');
+        [linha.posicao, linha.time, linha.pontos, linha.jogos, linha.vitorias, linha.empates, linha.derrotas,
+         linha.golsPro, linha.golsContra, linha.saldoDeGols, linha.aproveitamento.toFixed(1)]
+          .forEach(valor => { const td = document.createElement('td'); td.textContent = valor; tr.append(td); });
+        return tr;
+      }));
+
+      const cor = getComputedStyle(document.documentElement).getPropertyValue('--destaque').trim();
+      desenhar('grafico-pontos', {
+        type: 'bar',
+        data: { labels: tabela.map(l => l.time), datasets: [{ label: 'Pontos', data: tabela.map(l => l.pontos), backgroundColor: cor }] },
+        options: { indexAxis: 'y', plugins: { legend: { display: false } } }
+      });
+      desenhar('grafico-resultados', {
+        type: 'doughnut',
+        data: {
+          labels: ['Vitória do mandante', 'Empate', 'Vitória do visitante'],
+          datasets: [{ data: [resumo.vitoriasDoMandante, resumo.empates, resumo.vitoriasDoVisitante],
+                       backgroundColor: [cor, '#98a2b3', '#e0a030'] }]
+        }
+      });
+
+      el('aviso').textContent = tabela.length ? '' : 'Nenhuma partida para essa competição. Use "Coletar agora".';
+    } catch (erro) {
+      el('aviso').textContent = erro.message;
+    }
+  }
+
+  el('filtro').addEventListener('submit', evento => { evento.preventDefault(); carregar(); });
+  el('coletar').addEventListener('click', async () => {
+    el('aviso').textContent = 'Coletando…';
+    try {
+      const coleta = await chamar('/coletas', { method: 'POST' });
+      await carregar();
+      el('aviso').textContent = `${coleta.partidasColetadas} partidas coletadas.`;
+    } catch (erro) {
+      el('aviso').textContent = erro.message;
+    }
+  });
+
+  carregar();
+</script>
+</body>
+</html>
