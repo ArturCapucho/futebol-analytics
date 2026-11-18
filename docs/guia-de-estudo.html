@@ -1,0 +1,415 @@
+<title>Guia futebol-analytics</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: coluna única de leitura (~68ch), sumário no topo, blocos de código roláveis; tom de gramado e cal de campo. */
+  :root {
+    --fundo: #f4f6f3;
+    --papel: #ffffff;
+    --texto: #18211b;
+    --suave: #56635a;
+    --linha: #dbe3dc;
+    --gramado: #1b6b43;
+    --gramado-claro: #e3efe7;
+    --laranja: #b8650f;
+    --laranja-claro: #f8ecdd;
+    --codigo: #eef2ee;
+    --fonte-titulo: "Archivo", "Segoe UI", system-ui, sans-serif;
+    --fonte-texto: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    --fonte-codigo: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --fundo: #111712; --papel: #182019; --texto: #e4ebe5; --suave: #9aa89e; --linha: #2a352d;
+      --gramado: #5cc48d; --gramado-claro: #1d3326; --laranja: #e7a052; --laranja-claro: #33261a; --codigo: #1d261f;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --fundo: #111712; --papel: #182019; --texto: #e4ebe5; --suave: #9aa89e; --linha: #2a352d;
+    --gramado: #5cc48d; --gramado-claro: #1d3326; --laranja: #e7a052; --laranja-claro: #33261a; --codigo: #1d261f;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--fundo); color: var(--texto);
+    font: 16px/1.65 var(--fonte-texto);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 28px 64px;
+  }
+  main { max-width: 44rem; margin: 0 auto; display: grid; gap: 40px; }
+  main > * { min-width: 0; }
+  h1, h2, h3 { font-family: var(--fonte-titulo); text-wrap: balance; line-height: 1.2; margin: 0; }
+  h1 { font-size: clamp(1.9rem, 6vw, 2.6rem); font-weight: 800; letter-spacing: -0.01em; }
+  h2 { font-size: 1.45rem; font-weight: 700; padding-top: 8px; }
+  h3 { font-size: 1.08rem; font-weight: 700; margin-top: 8px; }
+  section { display: grid; gap: 14px; scroll-margin-top: 16px; }
+  section > * { min-width: 0; }
+  p, ul, ol { margin: 0; }
+  ul, ol { padding-left: 1.3em; display: grid; gap: 6px; }
+  a { color: var(--gramado); text-underline-offset: 3px; }
+  a:focus-visible { outline: 2px solid var(--gramado); outline-offset: 2px; border-radius: 3px; }
+  strong { font-weight: 600; }
+  code { font-family: var(--fonte-codigo); font-size: 0.86em; background: var(--codigo); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+  pre { margin: 0; background: var(--codigo); border: 1px solid var(--linha); border-radius: 8px; padding: 12px 14px; overflow-x: auto; font: 13px/1.55 var(--fonte-codigo); }
+  pre code { background: none; padding: 0; font-size: inherit; overflow-wrap: normal; }
+  pre.mermaid { background: var(--papel); text-align: center; }
+
+  .rotulo { font: 600 0.72rem/1 var(--fonte-texto); letter-spacing: 0.09em; text-transform: uppercase; color: var(--gramado); }
+  .abertura { display: grid; gap: 12px; }
+  .abertura p { color: var(--suave); font-size: 1.05rem; }
+
+  .situacao { background: var(--papel); border: 1px solid var(--linha); border-radius: 12px; padding: 18px; display: grid; gap: 14px; }
+  .etapas { list-style: none; padding: 0; display: grid; gap: 10px; }
+  .etapas li { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; }
+  .selo { font: 600 0.72rem/1 var(--fonte-texto); padding: 5px 8px; border-radius: 999px; white-space: nowrap; margin-top: 3px; }
+  .selo.ok { background: var(--gramado-claro); color: var(--gramado); }
+  .selo.pendente { background: var(--laranja-claro); color: var(--laranja); }
+
+  nav.sumario { border-top: 1px solid var(--linha); border-bottom: 1px solid var(--linha); padding-block: 14px; }
+  nav.sumario ol { columns: 2 14rem; column-gap: 24px; display: block; }
+  nav.sumario li { margin-bottom: 6px; break-inside: avoid; }
+
+  .tabela { overflow-x: auto; border: 1px solid var(--linha); border-radius: 8px; background: var(--papel); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--linha); vertical-align: top; }
+  th { font-weight: 600; color: var(--suave); font-size: 0.8rem; letter-spacing: 0.02em; }
+  tr:last-child td { border-bottom: 0; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  .destaque { border-left: 3px solid var(--laranja); background: var(--laranja-claro); padding: 12px 14px; border-radius: 0 8px 8px 0; display: grid; gap: 8px; }
+  .lembrete { border-left: 3px solid var(--gramado); background: var(--gramado-claro); padding: 12px 14px; border-radius: 0 8px 8px 0; }
+
+  .placar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .placar div { background: var(--papel); border: 1px solid var(--linha); border-radius: 8px; padding: 12px; display: grid; gap: 2px; }
+  .placar strong { font: 700 1.5rem/1.1 var(--fonte-titulo); font-variant-numeric: tabular-nums; }
+  .placar span { color: var(--suave); font-size: 0.82rem; line-height: 1.35; }
+  @media (max-width: 420px) { .placar { grid-template-columns: 1fr; } }
+
+  .barra { display: flex; height: 26px; border-radius: 6px; overflow: hidden; font: 600 0.78rem/1 var(--fonte-texto); color: #fff; }
+  .barra span { display: grid; place-items: center; }
+  .barra .m { background: #1b6b43; } .barra .e { background: #7d8a81; } .barra .v { background: #b8650f; }
+
+  footer { color: var(--suave); font-size: 0.85rem; border-top: 1px solid var(--linha); padding-top: 16px; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  html { scroll-behavior: smooth; }
+</style>
+
+<main>
+  <header class="abertura">
+    <span class="rotulo">Guia de estudo · atualizado em 17/11/2026</span>
+    <h1>futebol-analytics</h1>
+    <p>Uma aplicação Spring Boot que coleta partidas de futebol, calcula estatísticas, prevê resultados e mostra tudo em um dashboard. Este guia explica o que foi feito, por que foi feito assim e em que ordem estudar.</p>
+  </header>
+
+  <section id="situacao" class="situacao" aria-labelledby="t-situacao">
+    <h2 id="t-situacao">Onde estamos</h2>
+    <ul class="etapas">
+      <li><span class="selo ok">Pronto</span><span><strong>Parte 1:</strong> domínio, coleta (CSV e API football-data.org), banco com Flyway, API REST, dashboard, Docker e Kubernetes escritos. 28 testes.</span></li>
+      <li><span class="selo ok">Pronto</span><span><strong>Parte 2 (hoje):</strong> desempenho em casa e fora, últimos resultados, modelo de previsão de Poisson e avaliação honesta do modelo. 42 testes, todos passando.</span></li>
+      <li><span class="selo pendente">Falta</span><span><strong>Docker e Kubernetes nunca rodaram</strong>: a máquina não tem Docker. Os arquivos existem, mas não foram testados.</span></li>
+      <li><span class="selo pendente">Falta</span><span><strong>GitHub:</strong> o código está em um repositório git só no PC, com 2 commits. Falta criar o repositório no site e enviar.</span></li>
+      <li><span class="selo pendente">Falta</span><span><strong>Dados reais:</strong> tudo foi testado com um campeonato fictício. A fonte football-data.org precisa de um token seu.</span></li>
+    </ul>
+  </section>
+
+  <nav class="sumario" aria-label="Sumário">
+    <ol>
+      <li><a href="#visao">O que a aplicação faz</a></li>
+      <li><a href="#rodar">Rode antes de ler</a></li>
+      <li><a href="#ordem">Ordem de leitura</a></li>
+      <li><a href="#conceitos">Conceitos da parte 1</a></li>
+      <li><a href="#previsao">Parte 2: previsão</a></li>
+      <li><a href="#infra">Docker e Kubernetes</a></li>
+      <li><a href="#custos">Decisões com custo</a></li>
+      <li><a href="#exercicios">Exercícios</a></li>
+      <li><a href="#vocabulario">Vocabulário</a></li>
+    </ol>
+  </nav>
+
+  <section id="visao">
+    <span class="rotulo">1</span>
+    <h2>O que a aplicação faz</h2>
+    <p>Ela busca partidas em uma fonte, guarda em um banco e responde perguntas sobre elas por uma API REST. Uma página HTML consome essa API e mostra tabela, gráficos e previsões.</p>
+    <p>O caminho de um dado tem dois sentidos, coleta e consulta:</p>
+<pre class="mermaid">
+flowchart LR
+  F[CSV ou API<br/>football-data] --> P1[FonteDePartidas]
+  P1 --> C[ColetarPartidas]
+  C --> R[(RepositorioDePartidas<br/>banco)]
+  N[Navegador] --> API[Controller]
+  API --> UC[Caso de uso<br/>Consultar / Prever]
+  UC --> R
+  UC --> CALC[Calculadora<br/>ou modelo]
+</pre>
+    <p>Quase todo o resto do guia explica por que existem tantas caixinhas em vez de um controller que faz tudo.</p>
+  </section>
+
+  <section id="rodar">
+    <span class="rotulo">2</span>
+    <h2>Rode antes de ler</h2>
+    <p>Ler código que você já viu funcionando é muito mais fácil. No PC, uma vez só, aponte o Java 17 (abra um terminal novo depois):</p>
+    <pre><code>setx JAVA_HOME "C:\Users\artur\.jdks\jdk-17.0.21+9"</code></pre>
+    <p>Depois, na pasta <code>C:\Projetos\futebol-analytics\futebol-analytics</code>:</p>
+    <pre><code>.\mvnw.cmd spring-boot:run</code></pre>
+    <ul>
+      <li>Dashboard: <code>http://localhost:8080</code></li>
+      <li>JSON cru: <code>http://localhost:8080/api/competicoes/DEMO/temporadas/2026/previsoes</code></li>
+      <li>Testes: <code>.\mvnw.cmd test</code></li>
+    </ul>
+    <p>O <code>mvnw</code> é o Maven Wrapper: ele baixa a versão certa do Maven sozinho. Por isso o projeto só exige o JDK.</p>
+  </section>
+
+  <section id="ordem">
+    <span class="rotulo">3</span>
+    <h2>Ordem de leitura do código</h2>
+    <p>Leia de dentro para fora: primeiro o que não depende de nada, por último o que depende de tudo. Todos os pacotes ficam em <code>src/main/java/com/futebol/futebol_analytics/</code>.</p>
+    <div class="tabela"><table>
+      <thead><tr><th>Passo</th><th>Pacote</th><th>O que observar</th></tr></thead>
+      <tbody>
+        <tr><td class="num">1</td><td><code>dominio</code></td><td><code>Time</code>, <code>Placar</code>, <code>Competicao</code>, <code>Partida</code>. Java puro, sem nenhuma biblioteca. Veja as validações nos construtores.</td></tr>
+        <tr><td class="num">2</td><td><code>estatistica</code></td><td>Cálculos puros: recebem partidas e devolvem resultado, sem banco nem rede. Por isso os testes são curtos.</td></tr>
+        <tr><td class="num">3</td><td><code>previsao</code></td><td>Parte 2. O modelo de Poisson e a avaliação. Também Java puro.</td></tr>
+        <tr><td class="num">4</td><td><code>aplicacao</code></td><td>Os casos de uso e as duas portas (<code>FonteDePartidas</code>, <code>RepositorioDePartidas</code>). É o centro do projeto.</td></tr>
+        <tr><td class="num">5</td><td><code>infraestrutura</code></td><td>O mundo real: leitura do CSV, chamada HTTP, JPA, configuração e agendamento.</td></tr>
+        <tr><td class="num">6</td><td><code>api</code></td><td>Controllers com uma ou duas linhas por método, DTOs de resposta e tratamento de erros.</td></tr>
+      </tbody>
+    </table></div>
+    <p>Depois disso, abra os testes em <code>src/test/java</code>. Comece por <code>PartidaTest</code> e <code>CalculadoraDeClassificacaoTest</code>.</p>
+  </section>
+
+  <section id="conceitos">
+    <span class="rotulo">4</span>
+    <h2>Conceitos da parte 1</h2>
+
+    <h3>Records e validação no construtor</h3>
+    <p>Um <code>record</code> é uma classe imutável: o Java gera construtor, <code>equals</code>, <code>hashCode</code> e <code>toString</code>. O construtor compacto roda antes de os campos serem atribuídos:</p>
+<pre><code>public record Placar(int golsMandante, int golsVisitante) {
+    public Placar {
+        if (golsMandante &lt; 0 || golsVisitante &lt; 0) {
+            throw new IllegalArgumentException("gols não podem ser negativos");
+        }
+    }
+}</code></pre>
+    <p>Consequência: <strong>não existe <code>Placar</code> inválido em lugar nenhum do sistema</strong>. Quem recebe um não precisa conferir de novo. Validar no construtor, e não em um método <code>validar()</code>, evita que alguém esqueça de chamar.</p>
+
+    <h3>Imutabilidade</h3>
+    <p>Nenhum objeto de domínio muda depois de criado. <code>LinhaDaClassificacao.comJogo(...)</code> cria uma linha nova em vez de somar na atual. Isso elimina bugs de dois lugares alterando o mesmo objeto e deixa o objeto seguro entre threads.</p>
+
+    <h3>Arquitetura hexagonal (portas e adaptadores)</h3>
+    <p>Uma regra só: <strong>as dependências apontam para dentro</strong>.</p>
+<pre class="mermaid">
+flowchart LR
+  api --> aplicacao
+  infraestrutura --> aplicacao
+  aplicacao --> estatistica
+  aplicacao --> previsao
+  estatistica --> dominio
+  previsao --> dominio
+</pre>
+    <ul>
+      <li><strong>Porta</strong>: interface definida por quem precisa dela. <code>aplicacao</code> precisa de partidas, então <code>aplicacao</code> declara <code>FonteDePartidas</code>.</li>
+      <li><strong>Adaptador</strong>: implementação da porta para uma tecnologia. <code>FonteArquivoCsv</code> e <code>FonteFootballData</code> são dois adaptadores da mesma porta.</li>
+    </ul>
+    <p>O ganho aparece nos testes: <code>ColetarPartidasTest</code> testa a coleta usando uma lambda como fonte e uma lista como banco. O custo também é real: mais arquivos e mais conversões. Em um CRUD pequeno seria exagero; aqui vale porque o projeto vai receber novas fontes, modelos e mensageria.</p>
+
+    <h3>Injeção de dependência</h3>
+    <p>Nenhuma classe cria as próprias dependências com <code>new</code>; todas recebem pelo construtor. Quem monta tudo é <code>CasosDeUsoConfig</code>, com métodos <code>@Bean</code>. Os casos de uso nem têm <code>@Service</code>: eles não sabem que o Spring existe.</p>
+
+    <h3>SOLID no código</h3>
+    <div class="tabela"><table>
+      <thead><tr><th>Letra</th><th>Princípio</th><th>Onde ver</th></tr></thead>
+      <tbody>
+        <tr><td>S</td><td>Um motivo para mudar</td><td>O controller só muda se o HTTP mudar; a calculadora, só se a regra da tabela mudar.</td></tr>
+        <tr><td>O</td><td>Aberto para extensão</td><td>Fonte nova ou modelo novo é classe nova; nenhum caso de uso é editado.</td></tr>
+        <tr><td>L</td><td>Implementações intercambiáveis</td><td>Os testes trocam a fonte real por uma lambda e tudo funciona.</td></tr>
+        <tr><td>I</td><td>Interfaces pequenas</td><td><code>FonteDePartidas</code> tem um método só.</td></tr>
+        <tr><td>D</td><td>Depender de abstrações</td><td><code>aplicacao</code> define a interface; <code>infraestrutura</code> implementa.</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>Três classes para "a mesma coisa"</h3>
+    <p><code>Partida</code> (domínio), <code>PartidaEntity</code> (banco) e <code>PartidaResponse</code> (JSON) mudam por motivos diferentes. Renomear uma coluna mexe só na entidade; mudar o JSON mexe só no DTO; e o domínio fica livre das exigências do JPA (construtor vazio, campos mutáveis).</p>
+
+    <h3>Flyway e <code>ddl-auto=validate</code></h3>
+    <p>O Flyway cria e evolui as tabelas executando <code>V1__...sql</code>, <code>V2__...sql</code> em ordem, e registra o que já rodou. O Hibernate só confere se as entidades batem com o banco. Regra de ouro: migração aplicada nunca é editada; para mudar a tabela, cria-se outra.</p>
+
+    <h3>Coleta idempotente</h3>
+    <p>Coletar duas vezes não duplica partidas. Cada partida tem <code>idExterno</code> (o id dela na fonte), único no banco. Ao salvar, as que já existem são atualizadas e as novas são inseridas.</p>
+
+    <h3>Configuração fora do código</h3>
+    <ul>
+      <li><code>@ConfigurationProperties</code> transforma <code>futebol.coleta.*</code> em um record tipado.</li>
+      <li>O Spring lê variáveis de ambiente: <code>SPRING_DATASOURCE_URL</code> vira <code>spring.datasource.url</code>. O mesmo jar usa H2 no PC e PostgreSQL no Docker.</li>
+      <li><code>@ConditionalOnProperty</code> decide qual fonte existe, sem <code>if</code> espalhado.</li>
+      <li>O token da API só entra por variável de ambiente, nunca em arquivo.</li>
+    </ul>
+
+    <h3>Tratamento de erros</h3>
+    <p>O controller não tem <code>try/catch</code>. <code>TratadorDeErros</code> transforma dado inválido em 400 e falha da fonte externa em 502, no formato padrão <code>application/problem+json</code>.</p>
+
+    <h3>Os três níveis de teste</h3>
+    <div class="tabela"><table>
+      <thead><tr><th>Nível</th><th>Exemplo</th><th>Sobe o Spring?</th></tr></thead>
+      <tbody>
+        <tr><td>Unitário puro</td><td><code>PartidaTest</code>, <code>TreinadorPoissonTest</code></td><td>Não, milissegundos</td></tr>
+        <tr><td>Controller isolado</td><td><code>CompeticaoControllerTest</code></td><td>Só a camada web</td></tr>
+        <tr><td>Integração</td><td><code>FutebolAnalyticsApplicationTests</code></td><td>Sim, tudo</td></tr>
+      </tbody>
+    </table></div>
+    <p>Os testes usam <strong>fakes</strong> escritos à mão (<code>RepositorioEmMemoria</code>) em vez de mocks: o teste confere o resultado, não quais métodos foram chamados.</p>
+  </section>
+
+  <section id="previsao">
+    <span class="rotulo">5 · novo hoje</span>
+    <h2>Parte 2: desempenho e previsão de resultados</h2>
+    <p>Entraram três coisas: campanha em casa e fora, os últimos 5 resultados de cada time e um modelo que prevê as partidas agendadas, avaliado de forma honesta.</p>
+    <div class="tabela"><table>
+      <thead><tr><th>Onde</th><th>O quê</th></tr></thead>
+      <tbody>
+        <tr><td><code>estatistica</code></td><td><code>CalculadoraDeDesempenho</code>: casa, fora e sequência recente</td></tr>
+        <tr><td><code>previsao</code></td><td>Interfaces <code>TreinadorDeModelo</code> e <code>ModeloDePrevisao</code>; implementação <code>TreinadorPoisson</code> e <code>ModeloPoisson</code>; <code>AvaliadorDeModelo</code></td></tr>
+        <tr><td><code>aplicacao</code></td><td><code>ConsultarDesempenho</code>, <code>PreverPartidas</code>, <code>AvaliarModelo</code></td></tr>
+        <tr><td><code>api</code></td><td><code>GET /desempenho</code>, <code>GET /previsoes</code>, <code>GET /previsoes/avaliacao</code></td></tr>
+      </tbody>
+    </table></div>
+    <p class="lembrete">Nenhuma classe da parte 1 precisou ser reescrita. Só <code>CasosDeUsoConfig</code> e o controller ganharam linhas. É a arquitetura funcionando como prometido.</p>
+
+    <h3>A ideia do modelo de Poisson</h3>
+    <p>Gols são eventos raros ao longo de 90 minutos. Eventos assim seguem bem a <strong>distribuição de Poisson</strong>: dada uma média esperada λ (lambda), ela dá a chance de sair 0, 1, 2, 3 gols. Com λ = 1,5, sair 1 gol é o mais provável (33%), depois 2 gols (25%) e 0 gols (22%).</p>
+    <p>O modelo só precisa de um λ para cada time em cada jogo:</p>
+<pre><code>λ mandante  = média da liga em casa × ataque em casa do mandante × defesa fora do visitante
+λ visitante = média da liga fora    × ataque fora do visitante  × defesa em casa do mandante</code></pre>
+    <p>Ataque e defesa são relativos à média: ataque 1,3 é marcar 30% acima da média; defesa 0,8 é sofrer 20% menos. Casa e fora são separados porque o mando de campo pesa no futebol.</p>
+    <p>Com os dois λ, o código calcula a chance de cada placar de 0 x 0 a 10 x 10 e soma: todos os placares com mais gols do mandante viram a chance de vitória dele, e assim por diante. São umas 30 linhas em <code>ModeloPoisson.prever</code>.</p>
+    <p>Previsão real do dashboard para a rodada 10:</p>
+    <p><strong>Porto Real x Serrano</strong>, placar mais provável 1 x 1:</p>
+    <div class="barra" role="img" aria-label="Mandante 40%, empate 27%, visitante 33%"><span class="m" style="width:40%">40%</span><span class="e" style="width:27%">27%</span><span class="v" style="width:33%">33%</span></div>
+    <p>Repare: o placar mais provável é empate, mas o resultado mais provável é vitória do mandante. Não é contradição. 1 x 1 é o placar <em>individual</em> mais provável, mas a soma de 1 x 0, 2 x 0, 2 x 1, 3 x 1 e todos os outros placares de vitória do mandante supera a soma dos empates.</p>
+
+    <h3>Regularização: não acreditar demais em poucos jogos</h3>
+    <p>Um time que jogou uma vez em casa e fez 6 x 0 pareceria ter quatro vezes o ataque médio. Ninguém acredita nisso depois de um jogo. Por isso cada time começa com <strong>dois jogos imaginários exatamente na média</strong>:</p>
+    <pre><code>taxa = (gols reais + 2 × média) / (jogos reais + 2)</code></pre>
+    <p>Com 1 jogo, os imaginários pesam muito; com 30, quase nada. Esse "puxar para a média quando há pouco dado" é a <strong>regularização</strong>, presente em quase todo modelo de machine learning.</p>
+    <div class="destaque">
+      <strong>Um teste que falhou e ensinou</strong>
+      <p>O teste da regularização falhou na primeira versão, e o errado era o teste, não o modelo. Ele comparava o ataque do time contra um adversário real, cuja defesa também era puxada para a média, e os dois efeitos se misturavam. A correção foi usar um adversário sem jogos (força neutra). Quando um teste falha, primeiro descubra quem está errado: o código ou o teste.</p>
+    </div>
+
+    <h3>Treinar e prever são separados</h3>
+    <p><code>treinador.treinar(historico)</code> devolve um modelo, e o modelo sabe <code>prever(partida)</code>. Separar permite treinar muitas vezes com pedaços diferentes do passado (a avaliação precisa disso) e trocar o modelo inteiro do sistema mudando uma linha em <code>CasosDeUsoConfig.treinadorDeModelo()</code>. É de novo o O do SOLID.</p>
+
+    <h3>Avaliação honesta: o backtest</h3>
+    <ol>
+      <li>Ordena as partidas encerradas por data.</li>
+      <li>Para cada uma, treina o modelo <strong>só com as partidas anteriores</strong> a ela.</li>
+      <li>Prevê aquela partida e compara com o que aconteceu.</li>
+    </ol>
+    <p>O passo 2 é o essencial. Treinar com a partida que se quer prever é <strong>vazamento de dados</strong>: o modelo já sabe a resposta, parece ótimo no teste e falha no mundo real. O teste <code>naoVazaODaFuturo</code> usa um treinador espião para garantir isso.</p>
+    <div class="tabela"><table>
+      <thead><tr><th>Métrica</th><th>O que mede</th></tr></thead>
+      <tbody>
+        <tr><td>Taxa de acerto</td><td>Quantas vezes o resultado mais provável aconteceu. Sozinha engana.</td></tr>
+        <tr><td>Linha de base</td><td>Acerto de quem sempre aposta no mandante. O modelo precisa ganhar disto para valer algo.</td></tr>
+        <tr><td>Brier score</td><td>Erro das probabilidades. 0 é perfeito; chutar 1/3 para cada resultado dá 0,667. Dizer 90% e errar custa muito mais que dizer 45% e errar.</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>O resultado que parece ruim e é a melhor lição</h3>
+    <div class="placar">
+      <div><strong>29,2%</strong><span>acerto do modelo</span></div>
+      <div><strong>45,8%</strong><span>acerto de "sempre o mandante"</span></div>
+      <div><strong>0,761</strong><span>Brier, pior que chutar (0,667)</span></div>
+    </div>
+    <p>No campeonato de demonstração, o modelo perdeu para a regra mais boba. O motivo: os placares fictícios foram gerados por uma fórmula aritmética, então não existe time forte para aprender; é ruído. O modelo procura padrão onde não há, e a avaliação denuncia.</p>
+    <p>Sem a avaliação, o dashboard mostraria previsões com cara de precisas e todas inúteis. Por isso nenhum modelo vai para produção sem comparação com uma linha de base. O próximo passo é rodar com dados reais e comparar.</p>
+  </section>
+
+  <section id="infra">
+    <span class="rotulo">6</span>
+    <h2>Docker e Kubernetes</h2>
+    <p class="destaque">Esta parte foi escrita mas nunca executada, porque a máquina não tem Docker. Trate como material a validar: algum ajuste deve aparecer na primeira execução.</p>
+    <ul>
+      <li><strong>Dockerfile</strong>: dois estágios. O primeiro compila com JDK; o segundo copia só o jar para uma imagem com JRE, menor e sem ferramentas de build. Roda com usuário sem privilégios.</li>
+      <li><strong>docker-compose.yml</strong>: sobe PostgreSQL e a aplicação; a aplicação espera o banco ficar saudável.</li>
+    </ul>
+    <div class="tabela"><table>
+      <thead><tr><th>Recurso em <code>k8s/</code></th><th>Para que serve</th></tr></thead>
+      <tbody>
+        <tr><td>Namespace</td><td>Separa os recursos do projeto no cluster</td></tr>
+        <tr><td>Secret</td><td>Usuário e senha do banco</td></tr>
+        <tr><td>ConfigMap</td><td>Configuração não sensível, como variáveis de ambiente</td></tr>
+        <tr><td>StatefulSet</td><td>O PostgreSQL, com disco e identidade estáveis</td></tr>
+        <tr><td>Deployment</td><td>2 réplicas da aplicação, com atualização gradual</td></tr>
+        <tr><td>Service</td><td>Endereço estável na frente dos pods</td></tr>
+      </tbody>
+    </table></div>
+    <p>Três probes: <strong>startup</strong> dá tempo para subir; <strong>liveness</strong> reinicia o contêiner se falhar; <strong>readiness</strong> tira o pod do balanceamento sem reiniciar.</p>
+  </section>
+
+  <section id="custos">
+    <span class="rotulo">7</span>
+    <h2>Decisões que têm um custo</h2>
+    <p>Nenhuma é "a certa". São escolhas que você deve saber defender ou trocar.</p>
+    <ul>
+      <li><strong>Time identificado pelo nome.</strong> Simples, mas quebra se a fonte mudar a grafia.</li>
+      <li><strong><code>placar()</code> pode ser nulo</strong> enquanto a partida não termina; quem usa precisa checar <code>encerrada()</code>.</li>
+      <li><strong>H2 no PC, PostgreSQL em produção.</strong> Prático, mas os testes não exercitam o banco real. Testcontainers resolve.</li>
+      <li><strong>Coleta automática desligada no Kubernetes.</strong> Com 2 réplicas, as duas coletariam juntas. O certo é um CronJob ou um lock.</li>
+      <li><strong>O modelo treina a cada requisição.</strong> Barato com centenas de jogos; com milhares, treinar após cada coleta e guardar.</li>
+      <li><strong>Gols de cada time tratados como independentes.</strong> Na vida real não são totalmente; modelos como Dixon-Coles corrigem isso nos placares baixos.</li>
+    </ul>
+  </section>
+
+  <section id="exercicios">
+    <span class="rotulo">8</span>
+    <h2>Exercícios</h2>
+    <p>Fazer ensina mais que reler. Do mais fácil ao mais difícil:</p>
+    <h3>Parte 1</h3>
+    <ol>
+      <li>Adicione "maior goleada" ao resumo. Comece pelo teste. Descubra quais três arquivos mudam.</li>
+      <li>Crie outro critério de desempate (menos derrotas, por exemplo) sem alterar a calculadora.</li>
+      <li>Crie <code>GET .../times/{nome}/partidas</code>. Decida: o filtro fica no controller, no caso de uso ou no repositório? Por quê?</li>
+      <li>Adicione a coluna <code>estadio</code> com uma migração <code>V2__</code> e leve o campo até o JSON.</li>
+      <li>Implemente uma <code>FonteDePartidas</code> que lê JSON local. Confirme que nenhum caso de uso mudou.</li>
+    </ol>
+    <h3>Parte 2</h3>
+    <ol>
+      <li>Mude os jogos fictícios de 2 para 0 e depois para 10. O que acontece com a avaliação? Por quê?</li>
+      <li>Escreva um modelo ingênuo que sempre dá 45% / 27% / 28%. Ele ganha do Poisson nos dados fictícios? O que isso diz sobre os dados?</li>
+      <li>Acrescente à avaliação o Brier da linha de base, para comparar de igual para igual.</li>
+      <li>Dê mais peso aos jogos recentes (dica: um peso que diminui com a idade do jogo).</li>
+    </ol>
+  </section>
+
+  <section id="vocabulario">
+    <span class="rotulo">9</span>
+    <h2>Vocabulário</h2>
+    <div class="tabela"><table>
+      <tbody>
+        <tr><td><strong>Porta</strong></td><td>Interface que a aplicação define para falar com o mundo externo</td></tr>
+        <tr><td><strong>Adaptador</strong></td><td>Implementação de uma porta para uma tecnologia</td></tr>
+        <tr><td><strong>Caso de uso</strong></td><td>Uma ação que o sistema oferece, como "coletar partidas"</td></tr>
+        <tr><td><strong>DTO</strong></td><td>Objeto que só carrega dados entre camadas, como <code>PartidaResponse</code></td></tr>
+        <tr><td><strong>Bean</strong></td><td>Objeto criado e gerenciado pelo Spring</td></tr>
+        <tr><td><strong>Idempotente</strong></td><td>Repetir dá o mesmo resultado que fazer uma vez</td></tr>
+        <tr><td><strong>Migração</strong></td><td>Script versionado que altera o esquema do banco</td></tr>
+        <tr><td><strong>Invariante</strong></td><td>Regra sempre verdadeira para um objeto válido</td></tr>
+        <tr><td><strong>Poisson</strong></td><td>Distribuição que dá a chance de 0, 1, 2... eventos raros, dada a média</td></tr>
+        <tr><td><strong>Lambda (λ)</strong></td><td>Média de gols esperada de um time em uma partida</td></tr>
+        <tr><td><strong>Regularização</strong></td><td>Puxar estimativas para a média quando há poucos dados</td></tr>
+        <tr><td><strong>Backtest</strong></td><td>Avaliar prevendo o passado, treinando só com o que veio antes</td></tr>
+        <tr><td><strong>Vazamento de dados</strong></td><td>Treinar com informação que não existiria na hora de prever</td></tr>
+        <tr><td><strong>Linha de base</strong></td><td>A regra mais simples, que o modelo precisa superar</td></tr>
+        <tr><td><strong>Brier score</strong></td><td>Erro médio das probabilidades previstas; 0 é perfeito</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <footer>
+    O código mora em <code>C:\Projetos\futebol-analytics\futebol-analytics</code>. A versão em Markdown deste guia está em <code>docs/GUIA-DE-ESTUDO.md</code>, com links para cada arquivo citado.
+  </footer>
+</main>
