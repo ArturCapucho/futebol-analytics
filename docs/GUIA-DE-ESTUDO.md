@@ -1,5 +1,9 @@
 # Guia de estudo: futebol-analytics
 
+> **Versão mais completa:** [guia-de-estudo.html](guia-de-estudo.html), que também está publicada
+> como página para ler no celular. Ela tem a seção "Comece aqui", que explica de onde vêm os dados,
+> o que acontece quando a aplicação liga e como o Spring funciona, com diagramas. Comece por ela.
+
 Este guia explica o que foi construído na primeira parte do projeto, por que cada decisão foi
 tomada e em que ordem vale a pena ler o código. A ideia é você ler com o projeto aberto ao lado.
 
