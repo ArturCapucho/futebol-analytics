@@ -32,6 +32,17 @@
   th:nth-child(2), td:nth-child(2) { text-align:left; }
   tr:last-child td { border-bottom:0; }
   #aviso { color:var(--suave); min-height:1.4em; margin:0 0 12px; }
+  section + section { margin-top:12px; }
+  .nota { color:var(--suave); font-size:13px; margin:8px 0 0; }
+  .forma { display:inline-flex; gap:3px; }
+  .forma b { width:18px; height:18px; border-radius:4px; display:inline-grid; place-items:center; font-size:11px; color:#fff; }
+  .forma .V { background:var(--destaque); } .forma .E { background:#98a2b3; } .forma .D { background:#d9534f; }
+  .jogo { display:grid; gap:6px; padding:12px 0; border-bottom:1px solid var(--borda); }
+  .jogo:last-child { border-bottom:0; }
+  .jogo-topo { display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+  .barra { display:flex; height:22px; border-radius:6px; overflow:hidden; font-size:12px; color:#fff; font-variant-numeric:tabular-nums; }
+  .barra span { display:grid; place-items:center; min-width:0; overflow:hidden; white-space:nowrap; }
+  .barra .m { background:var(--destaque); } .barra .e { background:#98a2b3; } .barra .v { background:#e0a030; }
 </style>
 </head>
 <body>
@@ -61,9 +72,30 @@
     <h2>Classificação</h2>
     <div class="rolagem">
       <table>
-        <thead><tr><th>#</th><th>Time</th><th>P</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>%</th></tr></thead>
+        <thead><tr><th>#</th><th>Time</th><th>P</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>%</th><th>Últimos 5</th></tr></thead>
         <tbody id="tabela"></tbody>
       </table>
+    </div>
+  </section>
+
+  <section class="cartao">
+    <h2>Aproveitamento em casa e fora (%)</h2>
+    <canvas id="grafico-mando"></canvas>
+  </section>
+
+  <section class="grade">
+    <div class="cartao">
+      <h2>Previsões das partidas agendadas</h2>
+      <div id="previsoes"></div>
+    </div>
+    <div class="cartao">
+      <h2>O modelo é confiável?</h2>
+      <div class="numeros" style="margin-bottom:0">
+        <div><strong id="m-acerto">–</strong><span>acerto do modelo</span></div>
+        <div><strong id="m-base">–</strong><span>acerto de "sempre o mandante"</span></div>
+        <div><strong id="m-brier">–</strong><span>Brier (menor é melhor; chute ≈ 0,667)</span></div>
+      </div>
+      <p class="nota" id="m-nota"></p>
     </div>
   </section>
 </main>
@@ -71,6 +103,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
   const el = id => document.getElementById(id);
+  const br = (valor, casas) => valor.toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas });
   const graficos = {};
 
   const base = () =>
@@ -92,19 +125,63 @@
   async function carregar() {
     el('aviso').textContent = 'Carregando…';
     try {
-      const [tabela, resumo] = await Promise.all([chamar('/classificacao'), chamar('/resumo')]);
+      const [tabela, resumo, desempenho, previsoes, avaliacao] = await Promise.all([
+        chamar('/classificacao'), chamar('/resumo'), chamar('/desempenho'),
+        chamar('/previsoes'), chamar('/previsoes/avaliacao')]);
+      const formaPorTime = new Map(desempenho.map(d => [d.time, d.ultimosResultados]));
 
       el('n-partidas').textContent = resumo.partidasEncerradas;
       el('n-gols').textContent = resumo.totalDeGols;
-      el('n-media').textContent = resumo.mediaDeGolsPorPartida.toFixed(2);
+      el('n-media').textContent = br(resumo.mediaDeGolsPorPartida, 2);
 
       el('tabela').replaceChildren(...tabela.map(linha => {
         const tr = document.createElement('tr');
         [linha.posicao, linha.time, linha.pontos, linha.jogos, linha.vitorias, linha.empates, linha.derrotas,
-         linha.golsPro, linha.golsContra, linha.saldoDeGols, linha.aproveitamento.toFixed(1)]
+         linha.golsPro, linha.golsContra, linha.saldoDeGols, br(linha.aproveitamento, 1)]
           .forEach(valor => { const td = document.createElement('td'); td.textContent = valor; tr.append(td); });
+        const forma = document.createElement('td');
+        const caixas = document.createElement('span');
+        caixas.className = 'forma';
+        (formaPorTime.get(linha.time) || []).forEach(letra => {
+          const b = document.createElement('b'); b.className = letra; b.textContent = letra; caixas.append(b);
+        });
+        forma.append(caixas);
+        tr.append(forma);
         return tr;
       }));
+
+      el('previsoes').replaceChildren(...previsoes.map(p => {
+        const jogo = document.createElement('div');
+        jogo.className = 'jogo';
+        const topo = document.createElement('div');
+        topo.className = 'jogo-topo';
+        const nomes = document.createElement('strong');
+        nomes.textContent = `${p.mandante} x ${p.visitante}`;
+        const detalhe = document.createElement('span');
+        detalhe.className = 'nota';
+        detalhe.style.margin = '0';
+        detalhe.textContent = `rodada ${p.rodada} · gols esperados ${br(p.golsEsperadosMandante, 2)} x ${br(p.golsEsperadosVisitante, 2)} · placar mais provável ${p.placarMaisProvavel}`;
+        topo.append(nomes, detalhe);
+        const barra = document.createElement('div');
+        barra.className = 'barra';
+        [['m', p.chanceVitoriaMandante, 'mandante'], ['e', p.chanceEmpate, 'empate'], ['v', p.chanceVitoriaVisitante, 'visitante']]
+          .forEach(([classe, valor, rotulo]) => {
+            const parte = document.createElement('span');
+            parte.className = classe;
+            parte.style.width = valor + '%';
+            parte.title = `${rotulo}: ${valor}%`;
+            parte.textContent = valor >= 12 ? `${Math.round(valor)}%` : '';
+            barra.append(parte);
+          });
+        jogo.append(topo, barra);
+        return jogo;
+      }));
+      if (!previsoes.length) el('previsoes').textContent = 'Nenhuma partida agendada.';
+
+      el('m-acerto').textContent = `${br(avaliacao.taxaDeAcerto, 1)}%`;
+      el('m-base').textContent = `${br(avaliacao.taxaDeAcertoSempreMandante, 1)}%`;
+      el('m-brier').textContent = br(avaliacao.brierScore, 3);
+      el('m-nota').textContent = `Backtest com ${avaliacao.partidasAvaliadas} partidas: cada uma foi prevista treinando só com os jogos anteriores a ela. Barras: verde = mandante, cinza = empate, laranja = visitante.`;
 
       const cor = getComputedStyle(document.documentElement).getPropertyValue('--destaque').trim();
       desenhar('grafico-pontos', {
@@ -121,7 +198,19 @@
         }
       });
 
-      el('aviso').textContent = tabela.length ? '' : 'Nenhuma partida para essa competição. Use "Coletar agora".';
+      desenhar('grafico-mando', {
+        type: 'bar',
+        data: {
+          labels: desempenho.map(d => d.time),
+          datasets: [
+            { label: 'Em casa', data: desempenho.map(d => d.emCasa.aproveitamento), backgroundColor: cor },
+            { label: 'Fora', data: desempenho.map(d => d.foraDeCasa.aproveitamento), backgroundColor: '#e0a030' }
+          ]
+        },
+        options: { scales: { y: { min: 0, max: 100 } } }
+      });
+
+      el('aviso').textContent = tabela.length ? '' :'Nenhuma partida para essa competição. Use "Coletar agora".';
     } catch (erro) {
       el('aviso').textContent = erro.message;
     }

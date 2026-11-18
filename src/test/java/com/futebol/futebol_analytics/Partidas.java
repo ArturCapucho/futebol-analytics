@@ -6,6 +6,7 @@ import com.futebol.futebol_analytics.dominio.Partida;
 import com.futebol.futebol_analytics.dominio.Placar;
 import com.futebol.futebol_analytics.dominio.StatusPartida;
 import com.futebol.futebol_analytics.dominio.Time;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -36,7 +37,9 @@ public final class Partidas {
     }
 
     private static Partida nova(String mandante, String visitante, StatusPartida status, Placar placar) {
-        return new Partida("teste-" + SEQUENCIA.incrementAndGet(), COMPETICAO, 1, DATA,
+        // Cada partida criada é um dia depois da anterior: a ordem de criação é a ordem cronológica.
+        int numero = SEQUENCIA.incrementAndGet();
+        return new Partida("teste-" + numero, COMPETICAO, 1, DATA.plus(Duration.ofDays(numero)),
                 new Time(mandante), new Time(visitante), status, placar);
     }
 

@@ -10,11 +10,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.futebol.futebol_analytics.Partidas.RepositorioEmMemoria;
 import com.futebol.futebol_analytics.aplicacao.ColetarPartidas;
 import com.futebol.futebol_analytics.aplicacao.ConsultarClassificacao;
+import com.futebol.futebol_analytics.aplicacao.ConsultarDesempenho;
 import com.futebol.futebol_analytics.aplicacao.ConsultarPartidas;
 import com.futebol.futebol_analytics.aplicacao.ConsultarResumo;
 import com.futebol.futebol_analytics.aplicacao.FalhaNaColetaException;
 import com.futebol.futebol_analytics.aplicacao.porta.FonteDePartidas;
 import com.futebol.futebol_analytics.estatistica.CalculadoraDeClassificacao;
+import com.futebol.futebol_analytics.estatistica.CalculadoraDeDesempenho;
 import com.futebol.futebol_analytics.estatistica.CalculadoraDeResumo;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -69,6 +71,19 @@ class CompeticaoControllerTest {
     }
 
     @Test
+    @DisplayName("GET /desempenho separa casa e fora e lista a sequência em letras")
+    void devolveDesempenho() throws Exception {
+        mvc(competicao -> List.of()).perform(get(BASE + "/desempenho"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].time").value("Aurora"))
+                .andExpect(jsonPath("$[0].emCasa.vitorias").value(1))
+                .andExpect(jsonPath("$[0].foraDeCasa.empates").value(1))
+                .andExpect(jsonPath("$[0].ultimosResultados[0]").value("V"))
+                .andExpect(jsonPath("$[0].ultimosResultados[1]").value("E"));
+    }
+
+    @Test
     @DisplayName("POST /coletas executa a coleta e informa quantas partidas vieram")
     void executaColeta() throws Exception {
         mvc(competicao -> List.of(encerrada("Litoral", "Porto Real", 1, 0))).perform(post(BASE + "/coletas"))
@@ -93,6 +108,7 @@ class CompeticaoControllerTest {
                 new ConsultarClassificacao(repositorio, new CalculadoraDeClassificacao()),
                 new ConsultarResumo(repositorio, new CalculadoraDeResumo()),
                 new ConsultarPartidas(repositorio),
+                new ConsultarDesempenho(repositorio, new CalculadoraDeDesempenho()),
                 new ColetarPartidas(fonte, repositorio));
         return MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new TratadorDeErros())

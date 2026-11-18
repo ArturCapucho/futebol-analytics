@@ -29,6 +29,9 @@ Base: `/api/competicoes/{codigo}/temporadas/{temporada}`
 | `GET /classificacao` | tabela ordenada, com pontos, saldo e aproveitamento |
 | `GET /resumo` | partidas encerradas, gols, média e distribuição de resultados |
 | `GET /partidas` | partidas em ordem cronológica |
+| `GET /desempenho` | campanha de cada time em casa e fora, mais os últimos 5 resultados |
+| `GET /previsoes` | chances de vitória, empate e derrota das partidas agendadas (modelo de Poisson) |
+| `GET /previsoes/avaliacao` | quanto o modelo teria acertado no passado (backtest), comparado a "sempre o mandante" |
 | `POST /coletas` | busca as partidas na fonte e grava (pode repetir: não duplica) |
 
 Erros saem como `application/problem+json`: 400 para parâmetro inválido, 502 quando a fonte falha.
@@ -52,15 +55,18 @@ Depois dispare a coleta, por exemplo do Brasileirão 2026: `POST /api/competicoe
 Hexagonal (portas e adaptadores). As dependências apontam sempre para dentro:
 
 ```
-api ─────────────┐
-                 ▼
-infraestrutura ─► aplicacao ─► estatistica ─► dominio
+api ─────────────┐                ┌─► estatistica ─┐
+                 ▼                │                ▼
+infraestrutura ─► aplicacao ──────┤              dominio
+                                  │                ▲
+                                  └─► previsao ────┘
 ```
 
 | Pacote | Responsabilidade | Conhece o Spring? |
 |---|---|---|
 | `dominio` | `Partida`, `Placar`, `Time`, `Competicao`: records imutáveis, validados no construtor | não |
-| `estatistica` | cálculos puros sobre partidas (classificação, resumo) | não |
+| `estatistica` | cálculos puros sobre partidas (classificação, resumo, desempenho casa/fora) | não |
+| `previsao` | modelo de Poisson, treino com regularização e avaliação por backtest | não |
 | `aplicacao` | casos de uso e as portas `FonteDePartidas` e `RepositorioDePartidas` | não |
 | `infraestrutura` | adaptadores das portas (JPA, CSV, football-data), configuração, agendamento | sim |
 | `api` | controllers e DTOs de resposta | sim |
@@ -94,11 +100,17 @@ kubectl -n futebol port-forward svc/futebol-analytics 8080:80
 `k8s/` tem Namespace, PostgreSQL (StatefulSet + Secret) e a aplicação (ConfigMap, Deployment com
 2 réplicas, probes de startup/liveness/readiness e Service).
 
+## Sobre o modelo de previsão
+
+No campeonato de demonstração o modelo acerta menos que a regra "sempre o mandante". Não é defeito:
+os placares do CSV foram gerados por uma fórmula aritmética e não têm força de time para aprender.
+A avaliação existe exatamente para mostrar isso. Com dados reais (football-data.org), os números mudam.
+
 ## Próximos passos
 
-1. Mais estatísticas: desempenho como mandante/visitante, sequência de resultados, evolução por rodada.
-2. IA: porta `AnalistaDePartidas` em `aplicacao`, com adaptador para um LLM que comenta a rodada
-   a partir da classificação e do resumo; depois, um modelo de previsão de resultado.
+1. Rodar o modelo com dados reais e comparar a avaliação com a do campeonato fictício.
+2. IA generativa: porta `AnalistaDePartidas` em `aplicacao`, com adaptador para um LLM que comenta a
+   rodada a partir da classificação, do desempenho e das previsões.
 3. Coleta em Kubernetes como `CronJob` (ou ShedLock), para poder agendar com várias réplicas.
 4. Testcontainers para testar o repositório contra PostgreSQL de verdade.
 5. Kafka: publicar um evento por partida coletada e calcular estatísticas a partir do fluxo.

@@ -2,6 +2,7 @@ package com.futebol.futebol_analytics.api;
 
 import com.futebol.futebol_analytics.aplicacao.ColetarPartidas;
 import com.futebol.futebol_analytics.aplicacao.ConsultarClassificacao;
+import com.futebol.futebol_analytics.aplicacao.ConsultarDesempenho;
 import com.futebol.futebol_analytics.aplicacao.ConsultarPartidas;
 import com.futebol.futebol_analytics.aplicacao.ConsultarResumo;
 import com.futebol.futebol_analytics.dominio.Competicao;
@@ -22,17 +23,29 @@ class CompeticaoController {
     private final ConsultarClassificacao consultarClassificacao;
     private final ConsultarResumo consultarResumo;
     private final ConsultarPartidas consultarPartidas;
+    private final ConsultarDesempenho consultarDesempenho;
     private final ColetarPartidas coletarPartidas;
 
     CompeticaoController(
             ConsultarClassificacao consultarClassificacao,
             ConsultarResumo consultarResumo,
             ConsultarPartidas consultarPartidas,
+            ConsultarDesempenho consultarDesempenho,
             ColetarPartidas coletarPartidas) {
         this.consultarClassificacao = consultarClassificacao;
         this.consultarResumo = consultarResumo;
         this.consultarPartidas = consultarPartidas;
+        this.consultarDesempenho = consultarDesempenho;
         this.coletarPartidas = coletarPartidas;
+    }
+
+    /** Campanha em casa, fora e os últimos cinco resultados de cada time. */
+    @GetMapping("/desempenho")
+    List<DesempenhoResponse> desempenho(
+            @PathVariable("codigo") String codigo, @PathVariable("temporada") int temporada) {
+        return consultarDesempenho.executar(new Competicao(codigo, temporada)).stream()
+                .map(DesempenhoResponse::de)
+                .toList();
     }
 
     @GetMapping("/classificacao")

@@ -27,6 +27,6 @@ record LinhaDaClassificacaoResponse(
                 linha.golsPro(),
                 linha.golsContra(),
                 linha.saldoDeGols(),
-                Math.round(linha.aproveitamento() * 10.0) / 10.0);
+                Numeros.arredondar(linha.aproveitamento(), 1));
     }
 }

@@ -14,7 +14,7 @@ record ResumoResponse(
         return new ResumoResponse(
                 resumo.partidasEncerradas(),
                 resumo.totalDeGols(),
-                Math.round(resumo.mediaDeGolsPorPartida() * 100.0) / 100.0,
+                Numeros.arredondar(resumo.mediaDeGolsPorPartida(), 2),
                 resumo.vitoriasDoMandante(),
                 resumo.empates(),
                 resumo.vitoriasDoVisitante());
